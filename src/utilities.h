@@ -173,7 +173,11 @@ typedef double WallTime;
 WallTime WallTime_Now();
 
 int32 GetMainThreadPid();
+bool HourHasChanged();
 bool PidHasChanged();
+
+//删除超过保存期限的日志文件
+bool  DeleteOldLogFiles(LPCSTR Path, int nDays);
 
 pid_t GetTID();
 

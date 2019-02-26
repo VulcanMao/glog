@@ -103,6 +103,10 @@ static bool BoolFromEnv(const char *varname, bool defval) {
   return memchr("tTyY1\0", valstr[0], 6) != NULL;
 }
 
+GLOG_DEFINE_int32(logfile_save_days, 15, "日志文件保存的最大天数");
+
+GLOG_DEFINE_string(logfile_suffix, ".glog.txt","日志文件后缀");
+
 GLOG_DEFINE_bool(logtostderr, BoolFromEnv("GOOGLE_LOGTOSTDERR", false),
                  "log messages go to stderr instead of logfiles");
 GLOG_DEFINE_bool(alsologtostderr, BoolFromEnv("GOOGLE_ALSOLOGTOSTDERR", false),
@@ -771,8 +775,11 @@ inline void LogDestination::LogToAllLogfiles(LogSeverity severity,
   if ( FLAGS_logtostderr ) {           // global flag: never log to file
     ColoredWriteToStderr(severity, message, len);
   } else {
-    for (int i = severity; i >= 0; --i)
-      LogDestination::MaybeLogToLogfile(i, timestamp, message, len);
+	  //for (int i = severity; i >= 0; --i)
+		 // LogDestination::MaybeLogToLogfile(i, timestamp, message, len);
+	  //只输出到INFO日志文件里
+	  LogDestination::MaybeLogToLogfile(0, timestamp, message, len);
+
   }
 }
 
@@ -906,7 +913,7 @@ bool LogFileObject::CreateLogfile(const string& time_pid_string) {
   string string_filename = base_filename_+filename_extension_+
                            time_pid_string;
   const char* filename = string_filename.c_str();
-  int fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, FLAGS_logfile_mode);
+  int fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, FLAGS_logfile_mode);
   if (fd == -1) return false;
 #ifdef HAVE_FCNTL
   // Mark the file close-on-exec. We don't really care if this fails
@@ -973,11 +980,13 @@ void LogFileObject::Write(bool force_flush,
   }
 
   if (static_cast<int>(file_length_ >> 20) >= MaxLogSize() ||
-      PidHasChanged()) {
+      PidHasChanged()||HourHasChanged()) {
     if (file_ != NULL) fclose(file_);
     file_ = NULL;
     file_length_ = bytes_since_flush_ = dropped_mem_length_ = 0;
     rollover_attempt_ = kRolloverAttemptFrequency-1;
+
+	DeleteOldLogFiles(FLAGS_log_dir.c_str(),FLAGS_logfile_save_days);
   }
 
   // If there's no destination file, make one before outputting
@@ -994,15 +1003,18 @@ void LogFileObject::Write(bool force_flush,
     // The logfile's filename will have the date/time & pid in it
     ostringstream time_pid_stream;
     time_pid_stream.fill('0');
-    time_pid_stream << 1900+tm_time.tm_year
-                    << setw(2) << 1+tm_time.tm_mon
-                    << setw(2) << tm_time.tm_mday
-                    << '-'
-                    << setw(2) << tm_time.tm_hour
-                    << setw(2) << tm_time.tm_min
-                    << setw(2) << tm_time.tm_sec
-                    << '.'
-                    << GetMainThreadPid();
+	time_pid_stream << 1900 + tm_time.tm_year
+		<< setw(2) << 1 + tm_time.tm_mon
+		<< setw(2) << tm_time.tm_mday
+		<< '_'
+		<< setw(2) << tm_time.tm_hour
+
+		//这里就是文件名,不要分秒.进程id,添加指定的文件后缀
+		<< FLAGS_logfile_suffix.c_str();
+                    //<< setw(2) << tm_time.tm_min
+                    //<< setw(2) << tm_time.tm_sec
+                    //<< '.'
+                    //<< GetMainThreadPid();
     const string& time_pid_string = time_pid_stream.str();
 
     if (base_filename_selected_) {
@@ -1279,10 +1291,10 @@ void LogMessage::Init(const char* file,
   // We exclude the thread_id for the default thread.
   if (FLAGS_log_prefix && (line != kNoLogPrefix)) {
     stream() << LogSeverityNames[severity][0]
-             << setw(2) << 1+data_->tm_time_.tm_mon
-             << setw(2) << data_->tm_time_.tm_mday
+             //<< setw(2) << 1+data_->tm_time_.tm_mon			//不输出月,文件名里有
+             //<< setw(2) << data_->tm_time_.tm_mday			//不输出日,文件名里有
              << ' '
-             << setw(2) << data_->tm_time_.tm_hour  << ':'
+             //<< setw(2) << data_->tm_time_.tm_hour  << ':'	//不输出小时,文件名里有
              << setw(2) << data_->tm_time_.tm_min   << ':'
              << setw(2) << data_->tm_time_.tm_sec   << "."
              << setw(6) << usecs
