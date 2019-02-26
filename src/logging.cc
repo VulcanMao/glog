@@ -1088,7 +1088,8 @@ void LogFileObject::Write(bool force_flush,
                        << setw(2) << tm_time.tm_sec << '\n'
                        << "Running on machine: "
                        << LogDestination::hostname() << '\n'
-                       << "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu "
+                       //<< "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu "
+                       << "Log line format: [IWEF] hh:mm:ss.uuuuuu "	//不输出月日,文件名上有
                        << "threadid file:line] msg" << '\n';
     const string& file_header_string = file_header_stream.str();
 
