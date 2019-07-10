@@ -236,6 +236,23 @@ int32 GetMainThreadPid() {
   return g_main_thread_pid;
 }
 
+//判断小时是否改变
+static int g_main_hour = -1;
+bool HourHasChanged()
+{
+	time_t raw_time;
+	struct tm * tm_info;
+	time(&raw_time);
+	tm_info = localtime(&raw_time);
+
+	if (tm_info->tm_hour != g_main_hour)
+	{
+		g_main_hour = tm_info->tm_hour;
+		return true;
+	}
+	return false;
+}
+
 bool PidHasChanged() {
   int32 pid = getpid();
   if (g_main_thread_pid == pid) {
@@ -244,6 +261,57 @@ bool PidHasChanged() {
   g_main_thread_pid = pid;
   return true;
 }
+
+bool  DeleteOldLogFiles(LPCSTR Path, int nDays)
+{
+	WIN32_FIND_DATA FindData;
+	HANDLE hError;
+	char FilePathName[256] = { 0 };
+	// 构造路径 
+	char FullPathName[256] = { 0 }; 
+	strcpy(FilePathName, Path);
+	strcat(FilePathName, "\\*.*");
+	hError = FindFirstFile(FilePathName, &FindData); 
+	if (hError == INVALID_HANDLE_VALUE)
+	{
+		return false;
+	} 
+	time_t CurTime = time(NULL);
+	while(::FindNextFile(hError, &FindData))
+	{ 
+		// 过虑.和..  
+		if (strcmp(FindData.cFileName, ".") == 0    || strcmp(FindData.cFileName, "..") == 0 ) 
+		{ 
+			continue;
+		}    
+
+		///////进行简单文件校验防止误删除/////
+		string sFileName = FindData.cFileName;
+		size_t Pos = sFileName.find(FLAGS_logfile_suffix.c_str());
+		if (Pos == std::string::npos)
+		{
+			continue;
+		}
+
+		// 构造完整路径
+		wsprintf(FullPathName, "%s\\%s", Path, FindData.cFileName);
+
+		LONGLONG ll;
+		ULARGE_INTEGER   ui;
+		ui.LowPart = FindData.ftCreationTime.dwLowDateTime;
+		ui.HighPart = FindData.ftCreationTime.dwHighDateTime;
+		ll = FindData.ftCreationTime.dwHighDateTime << 32 + FindData.ftCreationTime.dwLowDateTime;
+		time_t FileTime = ((LONGLONG)(ui.QuadPart - 116444736000000000) / 10000000);
+		//////判断文件时间，日志文件大于20M的删除///////
+		if (CurTime - FileTime > nDays * 24 * 3600 > 0 /*|| (FindData.nFileSizeLow >> 20) > 20*/)
+		{
+			DeleteFile(FullPathName);
+		}
+	}
+	FindClose(hError);
+	return 0;
+}
+
 
 pid_t GetTID() {
   // On Linux and MacOSX, we try to use gettid().
