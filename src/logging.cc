@@ -111,7 +111,8 @@ GLOG_DEFINE_bool(logtostderr, BoolFromEnv("GOOGLE_LOGTOSTDERR", false),
                  "log messages go to stderr instead of logfiles");
 GLOG_DEFINE_bool(alsologtostderr, BoolFromEnv("GOOGLE_ALSOLOGTOSTDERR", false),
                  "log messages go to stderr in addition to logfiles");
-GLOG_DEFINE_bool(colorlogtostderr, false,
+//GLOG_DEFINE_bool(colorlogtostderr, false,
+GLOG_DEFINE_bool(colorlogtostderr, true,
                  "color messages logged to stderr (if supported by terminal)");
 #ifdef OS_LINUX
 GLOG_DEFINE_bool(drop_log_memory, true, "Drop in-memory buffers of log contents. "
